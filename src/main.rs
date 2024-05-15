@@ -2,7 +2,7 @@
 #![allow(rustdoc::missing_crate_level_docs)] // it's an example
 
 use eframe::egui;
-use egui::CursorIcon;
+use egui::{CursorIcon, Vec2};
 use image::{load_from_memory_with_format, ImageFormat::Png};
 use std::fs;
 use std::path::Path;
@@ -92,29 +92,30 @@ impl eframe::App for MyApp {
                 });
 
                 ui.heading("Subfolders with Executables");
-
-                for game in &self.subfolders_with_exes {
-                    ui.horizontal(|ui| {
-                        if let Ok(icon) = get_icon("exe", 32) {
-                            if let Ok(image) = load_from_memory_with_format(&icon, Png) {
-                                let rgba_image = image.to_rgba8();
-                                let (width, height) = rgba_image.dimensions();
-                                let pixels = rgba_image.into_raw();
-                                let color_image = egui::ColorImage::from_rgba_unmultiplied(
-                                    [width as usize, height as usize],
-                                    &pixels,
-                                );
-                                let texture = ctx.load_texture(
-                                    &format!("icon_{:?}", game),
-                                    color_image,
-                                    Default::default(),
-                                );
-                                ui.image((texture.id(), texture.size_vec2()));
-                            };
-                        }
-                        ui.label(game);
-                    });
-                }
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    for game in &self.subfolders_with_exes {
+                        ui.horizontal(|ui| {
+                            if let Ok(icon) = get_icon("exe", 32) {
+                                if let Ok(image) = load_from_memory_with_format(&icon, Png) {
+                                    let rgba_image = image.to_rgba8();
+                                    let (width, height) = rgba_image.dimensions();
+                                    let pixels = rgba_image.into_raw();
+                                    let color_image = egui::ColorImage::from_rgba_unmultiplied(
+                                        [width as usize, height as usize],
+                                        &pixels,
+                                    );
+                                    let texture = ctx.load_texture(
+                                        &format!("icon_{:?}", game),
+                                        color_image,
+                                        Default::default(),
+                                    );
+                                    ui.image((texture.id(), Vec2::new(64.0, 64.0)));
+                                };
+                            }
+                            ui.label(game);
+                        });
+                    }
+                });
             }
         });
     }
