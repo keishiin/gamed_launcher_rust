@@ -9,7 +9,6 @@ use std::io::Read;
 use std::path::{Path, PathBuf};
 
 const APPMANIFEST: &str = "appmanifest_";
-const STEAM_BASE_PATH: &str = r"F:\SteamLibrary\steamapps";
 
 #[derive(Default)]
 struct MyApp {
@@ -34,7 +33,6 @@ impl Config {
     fn load() -> Self {
         let mut config_file = fs::OpenOptions::new()
             .read(true)
-            .write(true)
             .create(true)
             .open("config.txt")
             .unwrap();
@@ -94,13 +92,18 @@ impl MyApp {
                     "SizeOnDisk" => game.size = value.parse().unwrap(),
                     "name" => game.name = value.to_string(),
                     "installdir" => {
-                        game.path = format!(r"{}\{}", STEAM_BASE_PATH, value.to_string())
+                        game.path = format!(
+                            r"{}\{}\{}",
+                            self.config.steam_path,
+                            "common",
+                            value.to_string()
+                        )
                     }
                     _ => {}
                 }
             }
         }
-        debug!("{:?}", game);
+        println!("{:?}", game);
         game
     }
 }
