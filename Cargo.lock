@@ -1872,6 +1872,7 @@ dependencies = [
  "egui",
  "env_logger",
  "image 0.25.1",
+ "log",
  "rfd",
  "systemicons",
  "winapi",

@@ -1,48 +1,78 @@
-#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
-#![allow(rustdoc::missing_crate_level_docs)] // it's an example
+#![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
+#![allow(rustdoc::missing_crate_level_docs)]
 
 use eframe::egui;
-use egui::{CursorIcon, Vec2};
-use image::{load_from_memory_with_format, ImageFormat::Png};
+use egui::CursorIcon;
+use log::{debug, info};
 use std::fs;
+use std::io::Read;
 use std::path::Path;
-use systemicons::get_icon;
-
-fn main() -> Result<(), eframe::Error> {
-    env_logger::init();
-
-    let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size([1300.0, 700.0])
-            .with_drag_and_drop(true),
-        ..Default::default()
-    };
-    eframe::run_native(
-        "Unified Game Launcher",
-        options,
-        Box::new(|_cc| Box::<MyApp>::default()),
-    )
-}
 
 #[derive(Default)]
 struct MyApp {
-    picked_path: Option<String>,
-    subfolders_with_exes: Vec<String>,
+    config: Config,
+    games: Vec<Game>,
+}
+
+#[derive(Default)]
+struct Game {
+    name: String,
+    path: String,
+}
+
+#[derive(Default)]
+struct Config {
+    steam_path: String,
+}
+
+impl Config {
+    fn load() -> Self {
+        let mut config_file = fs::OpenOptions::new()
+            .read(true)
+            .write(true)
+            .create(true)
+            .open("config.txt")
+            .unwrap();
+
+        let mut config = String::new();
+        config_file.read_to_string(&mut config).unwrap();
+
+        println!("{}", config);
+        Config { steam_path: config }
+    }
 }
 
 impl MyApp {
-    fn update_subfolders_with_exes(&mut self) {
-        if let Some(ref path) = self.picked_path {
-            self.subfolders_with_exes.clear();
+    fn new(config: Config) -> Self {
+        let mut app = MyApp {
+            config,
+            ..Default::default()
+        };
+        app.find_installed_games();
+        app
+    }
 
-            if let Ok(entries) = fs::read_dir(path) {
+    fn find_installed_games(&mut self) {
+        info!("Finding installed games");
+        let steam_path = Path::new(&self.config.steam_path);
+
+        if steam_path.is_dir() {
+            if let Ok(entries) = fs::read_dir(steam_path) {
                 for entry in entries.flatten() {
                     let entry_path = entry.path();
                     if entry_path.is_dir() {
-                        if contains_exe(&entry_path) {
-                            if let Some(path_str) = entry_path.to_str() {
-                                self.subfolders_with_exes.push(path_str.to_string());
-                            }
+                        let game_name = match entry_path.file_name() {
+                            Some(name) => name.to_string_lossy().to_string(),
+                            None => "".to_string(),
+                        };
+                        println!("{:?}", game_name);
+
+                        if game_name != "".to_string() {
+                            let game = Game {
+                                name: game_name,
+                                path: entry_path.to_string_lossy().to_string(),
+                            };
+                            self.games.push(game)
                         }
                     }
                 }
@@ -51,24 +81,8 @@ impl MyApp {
     }
 }
 
-fn contains_exe(path: &Path) -> bool {
-    if let Ok(entries) = fs::read_dir(path) {
-        for entry in entries.flatten() {
-            if entry.path().extension().and_then(|ext| ext.to_str()) == Some("exe") {
-                return true;
-            }
-        }
-    }
-
-    false
-}
-
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        // debug info for dev
-        // let cpu_usage = frame.info().cpu_usage;
-        // println!("cpu usage {:?}", cpu_usage);
-
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.label("Set path for Steam");
 
@@ -80,43 +94,40 @@ impl eframe::App for MyApp {
 
             if open_folder.clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    self.picked_path = Some(path.display().to_string());
-                    self.update_subfolders_with_exes();
+                    println!("{:?}", path);
+                    // need to save the path to config and to the config file
                 }
             }
 
-            if let Some(ref picked_path) = self.picked_path {
-                ui.horizontal(|ui| {
-                    ui.label("Steam Path:");
-                    ui.monospace(picked_path);
-                });
-
-                ui.heading("Subfolders with Executables");
-                egui::ScrollArea::vertical().show(ui, |ui| {
-                    for game in &self.subfolders_with_exes {
-                        ui.horizontal(|ui| {
-                            if let Ok(icon) = get_icon("exe", 32) {
-                                if let Ok(image) = load_from_memory_with_format(&icon, Png) {
-                                    let rgba_image = image.to_rgba8();
-                                    let (width, height) = rgba_image.dimensions();
-                                    let pixels = rgba_image.into_raw();
-                                    let color_image = egui::ColorImage::from_rgba_unmultiplied(
-                                        [width as usize, height as usize],
-                                        &pixels,
-                                    );
-                                    let texture = ctx.load_texture(
-                                        &format!("icon_{:?}", game),
-                                        color_image,
-                                        Default::default(),
-                                    );
-                                    ui.image((texture.id(), Vec2::new(64.0, 64.0)));
-                                };
-                            }
-                            ui.label(game);
-                        });
-                    }
-                });
-            }
+            ui.label("Installed Games");
+            egui::ScrollArea::vertical().show(ui, |ui| {
+                for game in &self.games {
+                    debug!("{:?}", &game.path);
+                    ui.horizontal(|ui| {
+                        ui.label(&game.name);
+                    });
+                }
+            });
         });
     }
+}
+
+fn main() -> Result<(), eframe::Error> {
+    env_logger::init();
+
+    let options = eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size([1300.0, 700.0])
+            .with_drag_and_drop(true),
+        ..Default::default()
+    };
+
+    let config = Config::load();
+
+    info!("starting app");
+    eframe::run_native(
+        "Unified Game Launcher",
+        options,
+        Box::new(|_cc| Box::new(MyApp::new(config))),
+    )
 }
