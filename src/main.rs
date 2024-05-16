@@ -6,7 +6,10 @@ use egui::CursorIcon;
 use log::{debug, info};
 use std::fs;
 use std::io::Read;
-use std::path::Path;
+use std::path::{Path, PathBuf};
+
+const APPMANIFEST: &str = "appmanifest_";
+const STEAM_BASE_PATH: &str = r"F:\SteamLibrary\steamapps";
 
 #[derive(Default)]
 struct MyApp {
@@ -14,8 +17,10 @@ struct MyApp {
     games: Vec<Game>,
 }
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct Game {
+    appid: i64,
+    size: i64,
     name: String,
     path: String,
 }
@@ -53,31 +58,50 @@ impl MyApp {
     }
 
     fn find_installed_games(&mut self) {
-        info!("Finding installed games");
+        debug!("{}", APPMANIFEST);
         let steam_path = Path::new(&self.config.steam_path);
 
         if steam_path.is_dir() {
             if let Ok(entries) = fs::read_dir(steam_path) {
                 for entry in entries.flatten() {
-                    let entry_path = entry.path();
-                    if entry_path.is_dir() {
-                        let game_name = match entry_path.file_name() {
-                            Some(name) => name.to_string_lossy().to_string(),
-                            None => "".to_string(),
-                        };
-                        println!("{:?}", game_name);
-
-                        if game_name != "".to_string() {
-                            let game = Game {
-                                name: game_name,
-                                path: entry_path.to_string_lossy().to_string(),
-                            };
-                            self.games.push(game)
-                        }
+                    let path = entry.path();
+                    if path.is_file() {
+                        info!("calling read_file_to_game_struct with path:{:?}", path);
+                        let game = self.read_file_to_game_struct(path);
+                        self.games.push(game);
                     }
                 }
             }
         }
+    }
+
+    fn read_file_to_game_struct(&mut self, path: PathBuf) -> Game {
+        debug!("{:?}", path);
+        let contents = fs::read_to_string(path).expect("unable to read from app manifest file");
+
+        let lines: Vec<&str> = contents.trim_matches('"').split("\n").collect();
+        let mut game = Game::default();
+
+        for line in lines {
+            let k_v: Vec<&str> = line.split_whitespace().collect();
+
+            if k_v.len() >= 2 {
+                let key = k_v[0].trim_matches('"');
+                let value = k_v[1..].join(" ").trim_matches('"').to_string();
+
+                match key {
+                    "appid" => game.appid = value.parse().unwrap(),
+                    "SizeOnDisk" => game.size = value.parse().unwrap(),
+                    "name" => game.name = value.to_string(),
+                    "installdir" => {
+                        game.path = format!(r"{}\{}", STEAM_BASE_PATH, value.to_string())
+                    }
+                    _ => {}
+                }
+            }
+        }
+        debug!("{:?}", game);
+        game
     }
 }
 
