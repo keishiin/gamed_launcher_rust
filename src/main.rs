@@ -64,6 +64,12 @@ impl MyApp {
             ..Default::default()
         };
         app.find_installed_games();
+
+        // this is temp, until i can get all the games that are installed
+        // to show up on ui kind of how steam does the library home page.
+        if !app.games.is_empty() {
+            app.game_selected = app.games[0].clone();
+        }
         app
     }
 
@@ -117,7 +123,7 @@ impl MyApp {
                     self.config.steam_game_cache_path, game.appid
                 );
                 let header = format!(
-                    r"{}/{}_header.jpg",
+                    r"{}/{}_library_hero.jpg",
                     self.config.steam_game_cache_path, game.appid
                 );
                 game.icon = icon.to_string();
@@ -202,12 +208,17 @@ impl eframe::App for MyApp {
                 }
             } else {
                 // basic logic for the game stuff.
-                let icon = self.game_selected.icon.clone();
-                ui.label(&self.game_selected.name);
-                println!("{}", icon);
-                // this does not work need to find a fix
-                // ui.image(egui::include_image!(header));
+                // ui.label(&self.game_selected.name);
+                println!("{}", self.game_selected.appid);
             }
+
+            let header = self.game_selected.header.clone();
+            ui.label(&self.game_selected.name);
+            ui.add(
+                egui::Image::new(format!("file://{header}"))
+                    .max_height(250.0)
+                    .max_width(ui.available_width()),
+            );
         });
     }
 }
