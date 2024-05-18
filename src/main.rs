@@ -8,12 +8,11 @@ use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
 
-const APPMANIFEST: &str = "appmanifest_";
-
 #[derive(Default)]
 struct MyApp {
     config: Config,
     games: Vec<Game>,
+    search_string: String,
 }
 
 #[derive(Default, Debug)]
@@ -33,6 +32,7 @@ impl Config {
     fn load() -> Self {
         let mut config_file = fs::OpenOptions::new()
             .read(true)
+            .write(true)
             .create(true)
             .open("config.txt")
             .unwrap();
@@ -56,7 +56,6 @@ impl MyApp {
     }
 
     fn find_installed_games(&mut self) {
-        debug!("{}", APPMANIFEST);
         let steam_path = Path::new(&self.config.steam_path);
 
         if steam_path.is_dir() {
@@ -103,13 +102,47 @@ impl MyApp {
                 }
             }
         }
-        println!("{:?}", game);
+        debug!("{:?}", game);
         game
     }
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        egui::SidePanel::left("left_panel")
+            .resizable(true)
+            .default_width(200.0)
+            .width_range(200.0..=250.0)
+            .show(ctx, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.heading("Installed Games");
+                    ui.separator();
+                    let _search_field = ui.add(
+                        egui::TextEdit::singleline(&mut self.search_string)
+                            .hint_text("Find By Name"),
+                    );
+                    ui.separator();
+                });
+                egui::ScrollArea::vertical().show(ui, |ui| {
+                    ui.with_layout(
+                        egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
+                        |ui| {
+                            for game in &self.games {
+                                debug!("{:?}", &game.path);
+                                let game_label = ui.label(&game.name);
+                                if game_label.hovered() {
+                                    ctx.set_cursor_icon(CursorIcon::PointingHand);
+                                }
+                                if game_label.clicked() {
+                                    println!("{}", &game.name);
+                                }
+                                ui.add_space(5.0);
+                            }
+                        },
+                    )
+                });
+            });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.label("Set path for Steam");
 
@@ -125,16 +158,6 @@ impl eframe::App for MyApp {
                     // need to save the path to config and to the config file
                 }
             }
-
-            ui.label("Installed Games");
-            egui::ScrollArea::vertical().show(ui, |ui| {
-                for game in &self.games {
-                    debug!("{:?}", &game.path);
-                    ui.horizontal(|ui| {
-                        ui.label(&game.name);
-                    });
-                }
-            });
         });
     }
 }
@@ -145,7 +168,7 @@ fn main() -> Result<(), eframe::Error> {
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
             .with_inner_size([1300.0, 700.0])
-            .with_drag_and_drop(true),
+            .with_drag_and_drop(false),
         ..Default::default()
     };
 
