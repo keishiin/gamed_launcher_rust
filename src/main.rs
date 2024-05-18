@@ -24,11 +24,14 @@ struct Game {
     size: i64,
     name: String,
     path: String,
+    icon: String,
+    header: String,
 }
 
 #[derive(Default)]
 struct Config {
     steam_path: String,
+    steam_game_cache_path: String,
 }
 
 impl Config {
@@ -42,9 +45,13 @@ impl Config {
 
         let mut config = String::new();
         config_file.read_to_string(&mut config).unwrap();
+        let parts: Vec<&str> = config.trim().split("\r\n").collect();
 
-        println!("{}", config);
-        Config { steam_path: config }
+        println!("parts 1: {:?}, parts 2: {:?}", parts[0], parts[1]);
+        Config {
+            steam_path: parts[0].to_string(),
+            steam_game_cache_path: parts[1].to_string(),
+        }
     }
 }
 
@@ -105,6 +112,16 @@ impl MyApp {
                     }
                     _ => {}
                 }
+                let icon = format!(
+                    r"{}/{}_icon.jpg",
+                    self.config.steam_game_cache_path, game.appid
+                );
+                let header = format!(
+                    r"{}/{}_header.jpg",
+                    self.config.steam_game_cache_path, game.appid
+                );
+                game.icon = icon.to_string();
+                game.header = header.to_string();
             }
         }
         debug!("{:?}", game);
@@ -185,7 +202,11 @@ impl eframe::App for MyApp {
                 }
             } else {
                 // basic logic for the game stuff.
+                let icon = self.game_selected.icon.clone();
                 ui.label(&self.game_selected.name);
+                println!("{}", icon);
+                // this does not work need to find a fix
+                // ui.image(egui::include_image!(header));
             }
         });
     }
@@ -207,6 +228,9 @@ fn main() -> Result<(), eframe::Error> {
     eframe::run_native(
         "Unified Game Launcher",
         options,
-        Box::new(|_cc| Box::new(MyApp::new(config))),
+        Box::new(|cc| {
+            egui_extras::install_image_loaders(&cc.egui_ctx);
+            Box::new(MyApp::new(config))
+        }),
     )
 }
