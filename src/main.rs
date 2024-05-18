@@ -13,9 +13,12 @@ struct MyApp {
     config: Config,
     games: Vec<Game>,
     search_string: String,
+    game_selected: Game,
+    current_page: String,
+    settigns_page_flag: bool, // this is temp maybe i can find some better way to do this
 }
 
-#[derive(Default, Debug)]
+#[derive(Default, Debug, Clone)]
 struct Game {
     appid: i64,
     size: i64,
@@ -49,6 +52,8 @@ impl MyApp {
     fn new(config: Config) -> Self {
         let mut app = MyApp {
             config,
+            settigns_page_flag: true,
+            current_page: "Settings".to_string(),
             ..Default::default()
         };
         app.find_installed_games();
@@ -127,14 +132,16 @@ impl eframe::App for MyApp {
                     ui.with_layout(
                         egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                         |ui| {
-                            for game in &self.games {
+                            let games = self.games.clone();
+                            for game in games {
                                 debug!("{:?}", &game.path);
                                 let game_label = ui.label(&game.name);
                                 if game_label.hovered() {
                                     ctx.set_cursor_icon(CursorIcon::PointingHand);
                                 }
                                 if game_label.clicked() {
-                                    println!("{}", &game.name);
+                                    debug!("{}", &game.name);
+                                    self.game_selected = game;
                                 }
                                 ui.add_space(5.0);
                             }
@@ -144,19 +151,41 @@ impl eframe::App for MyApp {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            ui.label("Set path for Steam");
+            // settings page <-> game page toggle?
+            let page_toggle = ui.button(self.current_page.as_str());
 
-            let open_folder = ui.button("Open Folder");
-
-            if open_folder.hovered() {
+            if page_toggle.hovered() {
                 ctx.set_cursor_icon(CursorIcon::PointingHand);
             }
 
-            if open_folder.clicked() {
-                if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    println!("{:?}", path);
-                    // need to save the path to config and to the config file
+            if page_toggle.clicked() {
+                if self.current_page == "Settings" {
+                    self.current_page = "Main Page".to_string();
+                    self.settigns_page_flag = false;
+                } else {
+                    self.current_page = "Settings".to_string();
+                    self.settigns_page_flag = true;
                 }
+            }
+
+            if self.settigns_page_flag {
+                ui.label("Set path for Steam");
+
+                let open_folder = ui.button("Open Folder");
+
+                if open_folder.hovered() {
+                    ctx.set_cursor_icon(CursorIcon::PointingHand);
+                }
+
+                if open_folder.clicked() {
+                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                        println!("{:?}", path);
+                        // need to save the path to config and to the config file
+                    }
+                }
+            } else {
+                // basic logic for the game stuff.
+                ui.label(&self.game_selected.name);
             }
         });
     }
