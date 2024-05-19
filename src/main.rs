@@ -3,7 +3,7 @@
 
 use eframe::egui;
 use egui::CursorIcon;
-use log::{debug, info};
+use log::{debug, error, info};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
@@ -16,7 +16,7 @@ struct MyApp {
     search_string: String,
     game_selected: Game,
     current_page: String,
-    settings_page_flag: bool, // this is temp maybe i can find some better way to do this
+    settings_page_flag: bool,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -26,7 +26,7 @@ struct Game {
     name: String,
     path: String,
     icon: String,
-    _logo: String, // need to draw on top of header
+    _logo: String,
     header: String,
 }
 
@@ -63,7 +63,7 @@ impl Config {
 
     fn save(&self) {
         let contents = format!("{}\r\n{}", self.steam_path, self.steam_game_cache_path);
-        println!("{}", contents);
+        debug!("{}", contents);
         fs::write("config.txt", contents).expect("unable to save to file");
     }
 }
@@ -201,7 +201,6 @@ impl eframe::App for MyApp {
             });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            // settings page <-> game page toggle?
             let page_toggle = ui.button(self.current_page.as_str());
 
             if page_toggle.hovered() {
@@ -312,12 +311,12 @@ impl eframe::App for MyApp {
                             .expect("failed to run game");
 
                         if status.success() {
-                            println!(
+                            debug!(
                                 "Playing Game: {}, appid: {}",
                                 &self.game_selected.name, &self.game_selected.appid
                             );
                         } else {
-                            eprintln!("Failed to launch game.");
+                            error!("Failed to launch game.");
                         }
                     }
                 });
