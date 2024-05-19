@@ -46,10 +46,16 @@ impl Config {
         let mut config = String::new();
         config_file.read_to_string(&mut config).unwrap();
         let parts: Vec<&str> = config.trim().split("\r\n").collect();
-
-        Config {
-            steam_path: parts[0].to_string(),
-            steam_game_cache_path: parts[1].to_string(),
+        if parts.len() >= 2 {
+            Config {
+                steam_path: parts[0].to_string(),
+                steam_game_cache_path: parts[1].to_string(),
+            }
+        } else {
+            Config {
+                steam_path: String::new(),
+                steam_game_cache_path: String::new(),
+            }
         }
     }
 
@@ -68,7 +74,10 @@ impl MyApp {
             current_page: "Settings".to_string(),
             ..Default::default()
         };
-        app.find_installed_games();
+
+        if !app.config.steam_path.is_empty() {
+            app.find_installed_games();
+        }
 
         // this is temp, until i can get all the games that are installed
         // to show up on ui kind of how steam does the library home page.
@@ -79,6 +88,10 @@ impl MyApp {
     }
 
     fn find_installed_games(&mut self) {
+        if !self.games.is_empty() {
+            self.games.clear();
+        }
+
         let steam_path = Path::new(&self.config.steam_path);
 
         if steam_path.is_dir() {
@@ -256,6 +269,7 @@ impl eframe::App for MyApp {
 
                         if save.clicked() {
                             self.config.save();
+                            self.find_installed_games();
                         }
                     });
                 });
@@ -264,7 +278,7 @@ impl eframe::App for MyApp {
                 ui.label(&self.game_selected.name);
                 ui.add(
                     egui::Image::new(format!("file://{header}"))
-                        .max_height(250.0)
+                        .max_height(350.0)
                         .max_width(ui.available_width()),
                 );
             }
