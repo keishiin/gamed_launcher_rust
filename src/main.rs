@@ -87,6 +87,27 @@ impl MyApp {
         app
     }
 
+    fn filter_games(&self) -> Vec<Game> {
+        if self.search_string.is_empty() {
+            self.games.clone()
+        } else {
+            let search_lower = self.search_string.to_lowercase();
+            self.games
+                .iter()
+                .filter(|game| MyApp::normalize_string(&game.name).contains(&search_lower))
+                .cloned()
+                .collect()
+        }
+    }
+
+    fn normalize_string(input: &str) -> String {
+        input
+            .chars()
+            .filter(|c| c.is_alphanumeric() || c.is_whitespace())
+            .collect::<String>()
+            .to_lowercase()
+    }
+
     fn find_installed_games(&mut self) {
         if !self.games.is_empty() {
             self.games.clear();
@@ -182,7 +203,7 @@ impl eframe::App for MyApp {
                     ui.with_layout(
                         egui::Layout::top_down(egui::Align::LEFT).with_cross_justify(true),
                         |ui| {
-                            let games = self.games.clone();
+                            let games = self.filter_games();
                             for game in games {
                                 debug!("{:?}", &game.path);
                                 let game_label = ui.label(&game.name);
