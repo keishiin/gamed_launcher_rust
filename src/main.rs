@@ -15,7 +15,7 @@ struct MyApp {
     search_string: String,
     game_selected: Game,
     current_page: String,
-    settigns_page_flag: bool, // this is temp maybe i can find some better way to do this
+    settings_page_flag: bool, // this is temp maybe i can find some better way to do this
 }
 
 #[derive(Default, Debug, Clone)]
@@ -28,7 +28,7 @@ struct Game {
     header: String,
 }
 
-#[derive(Default)]
+#[derive(Default, Clone)]
 struct Config {
     steam_path: String,
     steam_game_cache_path: String,
@@ -47,11 +47,16 @@ impl Config {
         config_file.read_to_string(&mut config).unwrap();
         let parts: Vec<&str> = config.trim().split("\r\n").collect();
 
-        println!("parts 1: {:?}, parts 2: {:?}", parts[0], parts[1]);
         Config {
             steam_path: parts[0].to_string(),
             steam_game_cache_path: parts[1].to_string(),
         }
+    }
+
+    fn save(&self) {
+        let contents = format!("{}\r\n{}", self.steam_path, self.steam_game_cache_path);
+        println!("{}", contents);
+        fs::write("config.txt", contents).expect("unable to save to file");
     }
 }
 
@@ -59,7 +64,7 @@ impl MyApp {
     fn new(config: Config) -> Self {
         let mut app = MyApp {
             config,
-            settigns_page_flag: true,
+            settings_page_flag: true,
             current_page: "Settings".to_string(),
             ..Default::default()
         };
@@ -184,41 +189,85 @@ impl eframe::App for MyApp {
             if page_toggle.clicked() {
                 if self.current_page == "Settings" {
                     self.current_page = "Main Page".to_string();
-                    self.settigns_page_flag = false;
+                    self.settings_page_flag = false;
                 } else {
                     self.current_page = "Settings".to_string();
-                    self.settigns_page_flag = true;
+                    self.settings_page_flag = true;
                 }
             }
 
-            if self.settigns_page_flag {
-                ui.label("Set path for Steam");
+            if self.settings_page_flag {
+                ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
+                    ui.label(egui::RichText::new("Settings").size(45.0));
+                    ui.add_space(25.0);
 
-                let open_folder = ui.button("Open Folder");
+                    ui.label(egui::RichText::new("Steam Path for Instlled Games").size(15.0));
+                    ui.add_space(5.0);
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.search_string)
+                                .hint_text(&self.config.steam_path)
+                                .desired_width(850.0)
+                                .interactive(false),
+                        );
+                        let open_folder = ui.button(egui::RichText::new("Open Finder").size(15.0));
+                        if open_folder.hovered() {
+                            ctx.set_cursor_icon(CursorIcon::PointingHand);
+                        }
 
-                if open_folder.hovered() {
-                    ctx.set_cursor_icon(CursorIcon::PointingHand);
-                }
+                        if open_folder.clicked() {
+                            if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                                self.config.steam_path = path.to_string_lossy().to_string();
+                            }
+                        }
+                    });
 
-                if open_folder.clicked() {
-                    if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                        println!("{:?}", path);
-                        // need to save the path to config and to the config file
-                    }
-                }
+                    ui.add_space(25.0);
+                    ui.label(egui::RichText::new("Steam Cache Path for Game Images").size(15.0));
+                    ui.add_space(5.0);
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.search_string)
+                                .hint_text(&self.config.steam_game_cache_path)
+                                .desired_width(850.0)
+                                .interactive(false),
+                        );
+                        let open_folder = ui.button(egui::RichText::new("Open Finder").size(15.0));
+                        if open_folder.hovered() {
+                            ctx.set_cursor_icon(CursorIcon::PointingHand);
+                        }
+
+                        if open_folder.clicked() {
+                            if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                                self.config.steam_game_cache_path =
+                                    path.to_string_lossy().to_string();
+                            }
+                        }
+                    });
+
+                    ui.add_space(25.0);
+                    ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
+                        let save = ui.button(egui::RichText::new("Save").size(15.0));
+                        ui.label(egui::RichText::new("Save").size(15.0));
+
+                        if save.hovered() {
+                            ctx.set_cursor_icon(CursorIcon::PointingHand);
+                        }
+
+                        if save.clicked() {
+                            self.config.save();
+                        }
+                    });
+                });
             } else {
-                // basic logic for the game stuff.
-                // ui.label(&self.game_selected.name);
-                println!("{}", self.game_selected.appid);
+                let header = self.game_selected.header.clone();
+                ui.label(&self.game_selected.name);
+                ui.add(
+                    egui::Image::new(format!("file://{header}"))
+                        .max_height(250.0)
+                        .max_width(ui.available_width()),
+                );
             }
-
-            let header = self.game_selected.header.clone();
-            ui.label(&self.game_selected.name);
-            ui.add(
-                egui::Image::new(format!("file://{header}"))
-                    .max_height(250.0)
-                    .max_width(ui.available_width()),
-            );
         });
     }
 }
