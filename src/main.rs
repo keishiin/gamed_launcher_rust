@@ -22,7 +22,7 @@ struct MyApp {
 #[derive(Default, Debug, Clone)]
 struct Game {
     appid: i64,
-    size: i64,
+    size: f64,
     name: String,
     path: String,
     icon: String,
@@ -124,7 +124,11 @@ impl MyApp {
 
                 match key {
                     "appid" => game.appid = value.parse().unwrap(),
-                    "SizeOnDisk" => game.size = value.parse().unwrap(),
+                    "SizeOnDisk" => {
+                        let size: f64 = value.parse().unwrap();
+                        let gb = size / 1024f64.powi(3);
+                        game.size = (gb * 10.0).round() / 10.0;
+                    }
                     "name" => game.name = value.to_string(),
                     "installdir" => {
                         game.path = format!(
@@ -289,7 +293,12 @@ impl eframe::App for MyApp {
                 ui.label(egui::RichText::new(&self.game_selected.name).size(25.0));
                 ui.add_space(5.0);
                 ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
-                    let play_button = ui.button(egui::RichText::new("Play").size(15.0));
+                    let play_button = ui.button(egui::RichText::new("Play").size(25.0));
+                    ui.add_space(10.0);
+
+                    ui.label(egui::RichText::new("Game Size: ").size(25.0));
+                    ui.label(egui::RichText::new(&self.game_selected.size.to_string()).size(25.0));
+                    ui.label(egui::RichText::new("GB").size(25.0));
 
                     if play_button.hovered() {
                         ctx.set_cursor_icon(CursorIcon::PointingHand);
