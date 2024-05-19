@@ -7,6 +7,7 @@
 ## Clone the Repository
 ```sh
 git clone https://github.com/keishiin/gamed_launcher_rust
+cd gamed_launcher_rust
 ```
 
 ## Running the App
