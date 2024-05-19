@@ -7,6 +7,7 @@ use log::{debug, info};
 use std::fs;
 use std::io::Read;
 use std::path::{Path, PathBuf};
+use std::process::Command;
 
 #[derive(Default)]
 struct MyApp {
@@ -25,6 +26,7 @@ struct Game {
     name: String,
     path: String,
     icon: String,
+    _logo: String, // need to draw on top of header
     header: String,
 }
 
@@ -79,8 +81,6 @@ impl MyApp {
             app.find_installed_games();
         }
 
-        // this is temp, until i can get all the games that are installed
-        // to show up on ui kind of how steam does the library home page.
         if !app.games.is_empty() {
             app.game_selected = app.games[0].clone();
         }
@@ -144,8 +144,13 @@ impl MyApp {
                     r"{}/{}_library_hero.jpg",
                     self.config.steam_game_cache_path, game.appid
                 );
+                let logo = format!(
+                    r"{}/{}_logo.jpg",
+                    self.config.steam_game_cache_path, game.appid
+                );
                 game.icon = icon.to_string();
                 game.header = header.to_string();
+                game._logo = logo.to_string();
             }
         }
         debug!("{:?}", game);
@@ -208,7 +213,9 @@ impl eframe::App for MyApp {
                     self.settings_page_flag = true;
                 }
             }
+            ui.separator();
 
+            ui.add_space(20.0);
             if self.settings_page_flag {
                 ui.with_layout(egui::Layout::top_down(egui::Align::LEFT), |ui| {
                     ui.label(egui::RichText::new("Settings").size(45.0));
@@ -260,8 +267,7 @@ impl eframe::App for MyApp {
 
                     ui.add_space(25.0);
                     ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
-                        let save = ui.button(egui::RichText::new("Save").size(15.0));
-                        ui.label(egui::RichText::new("Save").size(15.0));
+                        let save = ui.button(egui::RichText::new("Save").size(35.0));
 
                         if save.hovered() {
                             ctx.set_cursor_icon(CursorIcon::PointingHand);
@@ -274,13 +280,38 @@ impl eframe::App for MyApp {
                     });
                 });
             } else {
-                let header = self.game_selected.header.clone();
-                ui.label(&self.game_selected.name);
                 ui.add(
-                    egui::Image::new(format!("file://{header}"))
-                        .max_height(350.0)
+                    egui::Image::new(format!("file://{}", self.game_selected.header.clone()))
+                        .max_height(ui.available_height() / 1.5)
                         .max_width(ui.available_width()),
                 );
+
+                ui.label(egui::RichText::new(&self.game_selected.name).size(25.0));
+                ui.add_space(5.0);
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::LEFT), |ui| {
+                    let play_button = ui.button(egui::RichText::new("Play").size(15.0));
+
+                    if play_button.hovered() {
+                        ctx.set_cursor_icon(CursorIcon::PointingHand);
+                    }
+
+                    if play_button.clicked() {
+                        let url = format!("steam://run/{}", &self.game_selected.appid);
+                        let status = Command::new("cmd")
+                            .args(&["/C", "start", &url])
+                            .status()
+                            .expect("failed to run game");
+
+                        if status.success() {
+                            println!(
+                                "Playing Game: {}, appid: {}",
+                                &self.game_selected.name, &self.game_selected.appid
+                            );
+                        } else {
+                            eprintln!("Failed to launch game.");
+                        }
+                    }
+                });
             }
         });
     }
